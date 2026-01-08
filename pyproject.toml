@@ -3,13 +3,15 @@ name = "inat_pipeline"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = "==3.11.9"
 dependencies = [
+    "findspark>=2.0.1",
     "folium>=0.20.0",
     "geodatasets>=2026.1.0",
     "geopandas>=1.1.2",
-    "kafka-python>=2.3.0",
+    "kafka-python-ng>=2.2.3",
     "mapclassify>=2.10.0",
     "matplotlib>=3.10.8",
+    "pyspark==4.0.1",
     "uv>=0.9.21",
 ]

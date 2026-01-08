@@ -1,2 +1,9 @@
+_pycache_
+**/_pycache_
+**/**/_pycache_
+
+logs/**
+!logs/.gitkeep
+
 park_data/data/**
 !park_data/data/.gitkeep
