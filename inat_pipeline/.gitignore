@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+venv/
+.env
+.python-version
+
+# Spark / Hadoop junk
+.checkpoint/
+checkpoints/
+spark-warehouse/
+derby.log
+
+# Logs
+logs/
+*.log
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Local data 
+data/
+*.parquet
+*.csv
+*.json
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Kafka / Zookeeper runtime data
+kafka-logs/
+zookeeper-data/
+
+.env
+.env.*
