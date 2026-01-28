@@ -63,22 +63,35 @@ def upload_jsonl(records: list[dict], batch_id: int) -> None:
     )
 
 
-def fetch_page(offset: int) -> dict:
+def fetch_page(offset: int, use_geojson: bool = True) -> dict:
     """
     Fetch a single page from the ArcGIS FeatureServer.
+
+    Many ArcGIS layers support f=geojson and pagination, but some don't.
+    This function prints the server error body to make debugging fast.
     """
     params = {
         "where": "1=1",
         "outFields": "*",
         "returnGeometry": "true",
         "outSR": 4326,
-        "f": "geojson",
+        "f": "geojson" if use_geojson else "json",
+        # pagination params (may fail on some services)
         "resultOffset": offset,
         "resultRecordCount": PAGE_SIZE,
     }
 
     response = requests.get(PARKSERVE_URL, params=params, timeout=60)
-    response.raise_for_status()
+
+    if response.status_code >= 400:
+        print("\n[ERROR] ArcGIS request failed")
+        print("Status:", response.status_code)
+        print("Final URL:", response.url)
+        print("Response body (first 1000 chars):")
+        print(response.text[:1000])
+        print()
+        response.raise_for_status()
+
     return response.json()
 
 
@@ -109,7 +122,12 @@ def ingest_parkserve() -> None:
     total_records = 0
 
     while True:
-        payload = fetch_page(offset)
+        try:
+            payload = fetch_page(offset, use_geojson=True)
+        except requests.exceptions.HTTPError:
+            # ArcGIS layers may not support f=geojson
+            payload = fetch_page(offset, use_geojson=False)
+
         features = payload.get("features", [])
 
         if not features:
@@ -144,7 +162,7 @@ def ingest_parkserve() -> None:
 
         offset += PAGE_SIZE
         batch_id += 1
-        time.sleep(0.5)  
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     ingest_parkserve()
