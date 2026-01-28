@@ -10,7 +10,7 @@
 # ------------
 # - Batch-only (dimension dataset)
 # - No Spark used
-# - Geometry stored as WKT string
+# - Geometry stored as serialized ESRI geometry (string) in Bronze
 # - Minimal transformation (Bronze contract)
 # - Safe to re-run (append-only files)
 #
@@ -34,18 +34,12 @@ PARKSERVE_URL = (
 BUCKET = "bhj-analytics"
 BASE_PREFIX = "bronze/parkserve_parks"
 
-S3_CLIENT = boto3.client("s3")
-
-PAGE_SIZE = 1000  # ArcGIS default max is often 1000
+s3 = boto3.client("s3")
 
 
 # Helpers
 
-
 def upload_jsonl(records: list[dict], batch_id: int) -> None:
-    """
-    Write a list of dicts as JSON Lines to S3.
-    """
     if not records:
         return
 
@@ -56,7 +50,7 @@ def upload_jsonl(records: list[dict], batch_id: int) -> None:
 
     body = "\n".join(json.dumps(r) for r in records)
 
-    S3_CLIENT.put_object(
+    s3.put_object(
         Bucket=BUCKET,
         Key=key,
         Body=body.encode("utf-8")
@@ -65,28 +59,22 @@ def upload_jsonl(records: list[dict], batch_id: int) -> None:
 
 def fetch_all_features() -> dict:
     """
-    Fetch ALL ParkServe park features in a single request.
-    ParkServe is low-volume, so pagination is unnecessary and unreliable.
+    Fetch ALL ParkServe park features using ArcGIS-supported POST + pjson.
+    This service returns empty results for GET-based bulk queries.
     """
-    params = {
+    data = {
         "where": "1=1",
         "outFields": "*",
         "returnGeometry": "true",
         "outSR": 4326,
-        "f": "json",
-
-        # REQUIRED for ArcGIS FeatureServer bulk reads
-        "resultType": "standard",
-        "returnExceededLimitFeatures": "true",
+        "f": "pjson",
     }
 
-
-    response = requests.get(PARKSERVE_URL, params=params, timeout=60)
+    response = requests.post(PARKSERVE_URL, data=data, timeout=60)
 
     if response.status_code >= 400:
         print("\n[ERROR] ArcGIS request failed")
         print("Status:", response.status_code)
-        print("Final URL:", response.url)
         print("Response body (first 1000 chars):")
         print(response.text[:1000])
         print()
@@ -95,28 +83,8 @@ def fetch_all_features() -> dict:
     return response.json()
 
 
-
-def geojson_to_wkt(geometry):
-    """
-    Very lightweight GeoJSON -> WKT conversion.
-    Not validating geometry deeply in Bronze.
-    """
-    if not geometry:
-        return None
-
-    geom_type = geometry.get("type")
-    coords = geometry.get("coordinates")
-
-    if not geom_type or not coords:
-        return None
-
-    # This is intentionally simple and safe for Bronze.
-    # Full spatial correctness is deferred to Silver/PostGIS.
-    return f"{geom_type.upper()} {json.dumps(coords)}"
-
-
-
 # Main ingestion
+
 def ingest_parkserve() -> None:
     batch_id = 1
 
@@ -130,7 +98,7 @@ def ingest_parkserve() -> None:
     records = []
 
     for feature in features:
-        props = feature.get("properties", {})
+        props = feature.get("attributes", {})
         geometry = feature.get("geometry")
 
         record = {
@@ -138,7 +106,8 @@ def ingest_parkserve() -> None:
             "park_name": props.get("ParkName"),
             "county": props.get("County"),
             "state": props.get("State"),
-            "geometry_wkt": geojson_to_wkt(geometry),
+            # store raw ESRI geometry as string (Bronze-safe)
+            "geometry_wkt": json.dumps(geometry) if geometry else None,
             "source": "ParkServe",
         }
 
@@ -150,9 +119,7 @@ def ingest_parkserve() -> None:
         f"[INGESTED] Batch {batch_id} | "
         f"Records: {len(records)}"
     )
-
     print(f"[DONE] Total ParkServe records ingested: {len(records)}")
-
 
 
 if __name__ == "__main__":
