@@ -47,6 +47,7 @@ bronze_df = bronze_df.withColumn(
     to_date(col("observed_date"))
 )
 
+
 # Optional date filtering (batch / backfill logic)
 if args.start_date:
     bronze_df = bronze_df.filter(
@@ -59,6 +60,20 @@ silver_df = (
     bronze_df
     .dropna(subset=["observation_id"])
     .dropDuplicates(["observation_id"])
+)
+
+# Explicit Silver schema
+silver_df = silver_df.select(
+    "observation_id",
+    "observed_date",
+    "latitude",
+    "longitude",
+    "county",
+    "state",
+    "taxon_id",
+    "iconic_taxon_name",
+    "quality_grade",
+    "source_year"
 )
 
 # Write Silver data

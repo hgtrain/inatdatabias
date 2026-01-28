@@ -1,12 +1,35 @@
 #seed_bronze_inat.py
 
-#One-time batch ingestion job to seed the Bronze layer in S3
-#with a small slice of iNaturalist observation data.
+"""
+PURPOSE
+-------
+Local development SMOKE TEST for Bronze iNat ingestion logic.
 
-#Purpose:
-#Materialize Bronze Parquet data
-#Unblock Silver and Gold batch jobs
-#Avoid extended EMR streaming runtime
+WHAT THIS IS
+------------
+- Local-only version of the EMR smoke test
+- Used to validate API parsing and schema mapping
+- Does NOT represent production-scale ingestion
+
+WHAT THIS IS NOT
+----------------
+- NOT used in AWS
+- NOT part of the deployed pipeline
+- NOT historical ingestion
+
+WHY THIS EXISTS
+---------------
+Used during early development to:
+- Validate API response structure
+- Build schema before deploying to EMR
+- Debug logic without incurring AWS cost
+
+STATUS
+------
+Development-only artifact.
+May be deleted once EMR ingestion is stable.
+"""
+
 
 
 import requests
