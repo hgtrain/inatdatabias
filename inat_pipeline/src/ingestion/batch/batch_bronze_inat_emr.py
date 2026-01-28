@@ -5,7 +5,6 @@ import json
 import time
 import requests
 import boto3
-from datetime import datetime
 
 INAT_URL = "https://api.inaturalist.org/v1/observations"
 PER_PAGE = 200
@@ -46,8 +45,23 @@ def ingest_year(year: int):
             "order_by": "created_at"
         }
 
-        response = requests.get(INAT_URL, params=params, timeout=30)
-        response.raise_for_status()
+        try:
+            response = requests.get(INAT_URL, params=params, timeout=30)
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            print(
+                f"[STOPPED] Year {year} | Page {page} | "
+                f"HTTP error encountered: {e}. "
+                f"Partial ingestion preserved. Safe to resume later."
+            )
+            break
+        except requests.exceptions.RequestException as e:
+            print(
+                f"[STOPPED] Year {year} | Page {page} | "
+                f"Request failed: {e}. "
+                f"Partial ingestion preserved."
+            )
+            break
 
         payload = response.json()
         results = payload.get("results", [])
