@@ -82,7 +82,7 @@ def fetch_page(offset: int) -> dict:
     return response.json()
 
 
-def geojson_to_wkt(geometry: dict) -> str | None:
+def geojson_to_wkt(geometry):
     """
     Very lightweight GeoJSON -> WKT conversion.
     Not validating geometry deeply in Bronze.
