@@ -35,7 +35,6 @@ SAFE TO DELETE after:
 - Full batch ingestion for 2019/2020 is implemented and verified
 """
 
-
 import requests
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
