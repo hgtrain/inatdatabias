@@ -73,8 +73,13 @@ def fetch_all_features() -> dict:
         "outFields": "*",
         "returnGeometry": "true",
         "outSR": 4326,
-        "f": "json",   # GeoJSON not supported on this layer
+        "f": "json",
+
+        # REQUIRED for ArcGIS FeatureServer bulk reads
+        "resultType": "standard",
+        "returnExceededLimitFeatures": "true",
     }
+
 
     response = requests.get(PARKSERVE_URL, params=params, timeout=60)
 
