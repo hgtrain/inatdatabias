@@ -1,3 +1,21 @@
+"""
+ARCHIVED – DO NOT RUN
+
+This script represents an attempted ParkServe Bronze ingestion using the
+ArcGIS FeatureServer REST API (POST + pjson).
+
+During development, the FeatureServer returned empty result sets for
+programmatic access despite valid parameters.
+
+To ensure reliability and reproducibility, ParkServe spatial reference
+data was instead ingested from the official ParkServe published export
+and stored in S3 as:
+
+s3://bhj-analytics/bronze/parkserve_parks/parkserve_raw.geojson
+
+This file is retained for documentation and design lineage only.
+"""
+
 # batch_bronze_parkserve_emr.py
 #
 # PURPOSE
