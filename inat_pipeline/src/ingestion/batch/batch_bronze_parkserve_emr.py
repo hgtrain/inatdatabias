@@ -63,22 +63,17 @@ def upload_jsonl(records: list[dict], batch_id: int) -> None:
     )
 
 
-def fetch_page(offset: int, use_geojson: bool = True) -> dict:
+def fetch_all_features() -> dict:
     """
-    Fetch a single page from the ArcGIS FeatureServer.
-
-    Many ArcGIS layers support f=geojson and pagination, but some don't.
-    This function prints the server error body to make debugging fast.
+    Fetch ALL ParkServe park features in a single request.
+    ParkServe is low-volume, so pagination is unnecessary and unreliable.
     """
     params = {
         "where": "1=1",
         "outFields": "*",
         "returnGeometry": "true",
         "outSR": 4326,
-        "f": "geojson" if use_geojson else "json",
-        # pagination params (may fail on some services)
-        "resultOffset": offset,
-        "resultRecordCount": PAGE_SIZE,
+        "f": "json",   # GeoJSON not supported on this layer
     }
 
     response = requests.get(PARKSERVE_URL, params=params, timeout=60)
@@ -93,6 +88,7 @@ def fetch_page(offset: int, use_geojson: bool = True) -> dict:
         response.raise_for_status()
 
     return response.json()
+
 
 
 def geojson_to_wkt(geometry):
@@ -117,52 +113,42 @@ def geojson_to_wkt(geometry):
 
 # Main ingestion
 def ingest_parkserve() -> None:
-    offset = 0
     batch_id = 1
-    total_records = 0
 
-    while True:
-        try:
-            payload = fetch_page(offset, use_geojson=True)
-        except requests.exceptions.HTTPError:
-            # ArcGIS layers may not support f=geojson
-            payload = fetch_page(offset, use_geojson=False)
+    payload = fetch_all_features()
+    features = payload.get("features", [])
 
-        features = payload.get("features", [])
+    if not features:
+        print("[DONE] No ParkServe features returned.")
+        return
 
-        if not features:
-            print(f"[DONE] Total ParkServe records ingested: {total_records}")
-            break
+    records = []
 
-        records = []
+    for feature in features:
+        props = feature.get("properties", {})
+        geometry = feature.get("geometry")
 
-        for feature in features:
-            props = feature.get("properties", {})
-            geometry = feature.get("geometry")
+        record = {
+            "park_id": str(props.get("ParkServeID") or props.get("OBJECTID")),
+            "park_name": props.get("ParkName"),
+            "county": props.get("County"),
+            "state": props.get("State"),
+            "geometry_wkt": geojson_to_wkt(geometry),
+            "source": "ParkServe",
+        }
 
-            record = {
-                "park_id": str(props.get("ParkServeID") or props.get("OBJECTID")),
-                "park_name": props.get("ParkName"),
-                "county": props.get("County"),
-                "state": props.get("State"),
-                "geometry_wkt": geojson_to_wkt(geometry),
-                "source": "ParkServe",
-            }
+        records.append(record)
 
-            records.append(record)
+    upload_jsonl(records, batch_id)
 
-        upload_jsonl(records, batch_id)
+    print(
+        f"[INGESTED] Batch {batch_id} | "
+        f"Records: {len(records)}"
+    )
 
-        total_records += len(records)
-        print(
-            f"[INGESTED] Batch {batch_id} | "
-            f"Records: {len(records)} | "
-            f"Total: {total_records}"
-        )
+    print(f"[DONE] Total ParkServe records ingested: {len(records)}")
 
-        offset += PAGE_SIZE
-        batch_id += 1
-        time.sleep(0.5)
+
 
 if __name__ == "__main__":
     ingest_parkserve()
