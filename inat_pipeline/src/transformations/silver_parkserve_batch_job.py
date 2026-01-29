@@ -92,32 +92,24 @@ def main():
 
     # 4) Normalize attribute fields (robust across ParkServe exports)
     park_id = F.coalesce(
-        props.getItem("ParkServeID"),
-        props.getItem("PARKSERVEID"),
-        props.getItem("OBJECTID"),
-        props.getItem("ObjectID"),
-        props.getItem("objectid"),
+        props.getItem("ParkID"),
+        props.getItem("GISTrkrID"),
+        props.getItem("SourceID"),
         col("feature.id")
     )
 
     park_name = F.coalesce(
-        props.getItem("ParkName"),
-        props.getItem("PARKNAME"),
         props.getItem("Park_Name"),
-        props.getItem("NAME"),
+        props.getItem("name"),
         props.getItem("Name")
     )
 
     county = F.coalesce(
-        props.getItem("County"),
-        props.getItem("COUNTY"),
-        props.getItem("CountyName"),
-        props.getItem("COUNTYNAME")
+        props.getItem("Park_County")
     )
 
     state = F.coalesce(
-        props.getItem("State"),
-        props.getItem("STATE")
+        props.getItem("Park_State")
     )
 
     # 5) Preserve geometry as serialized JSON
