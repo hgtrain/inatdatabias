@@ -1,96 +1,60 @@
 # bronze_json_to_parquet_inat.py
-#
-# PURPOSE
-# -------
-# Canonicalize raw Bronze iNaturalist JSON into Parquet.
-# This job converts API JSON pages into a Spark-readable,
-# schema-enforced Parquet Bronze dataset.
-#
-# INPUT (Bronze - raw)
-# --------------------
-# s3://bhj-analytics/bronze/inat_observations/year=YYYY/*.json
-#
-# OUTPUT (Bronze - canonical)
-# ---------------------------
-# s3://bhj-analytics/bronze_parquet/inat_observations/year=YYYY/
-#
-# NOTES
-# -----
-# - No deduplication
-# - No analytics
-# - No enrichment
-# - Normalizes event date fields for downstream correctness
 
 import argparse
 import os
 import sys
-
 from pyspark.sql import functions as F
 
-# Ensure src/ is on PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from spark_jobs.spark_session import create_spark_session
-from common.schemas import BRONZE_INAT_OBSERVATIONS_SCHEMA
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Convert Bronze iNaturalist JSON to Parquet"
-    )
-    parser.add_argument(
-        "--bronze-json-path",
-        required=True,
-        help="S3 path to raw Bronze JSON (year partition)"
-    )
-    parser.add_argument(
-        "--bronze-parquet-path",
-        required=True,
-        help="S3 path to write canonical Bronze Parquet"
-    )
-
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bronze-json-path", required=True)
+    parser.add_argument("--bronze-parquet-path", required=True)
     args = parser.parse_args()
 
     spark = create_spark_session("BronzeJsonToParquetInat")
 
-    # Read raw JSON with enforced schema
-    raw_df = (
-        spark.read
-        .schema(BRONZE_INAT_OBSERVATIONS_SCHEMA)
-        .json(args.bronze_json_path)
-    )
+    # Read RAW JSON — NO SCHEMA
+    raw_df = spark.read.json(args.bronze_json_path)
 
-    # Normalize event timestamp (critical fix)
+    # Canonicalize dates explicitly
     bronze_df = (
         raw_df
         .withColumn(
             "event_date",
             F.to_date(
                 F.coalesce(
+                    F.col("observed_on_details.date"),
                     F.col("observed_on"),
                     F.col("observed_at"),
-                    F.col("time_observed_at"),
                     F.col("created_at")
                 )
             )
         )
-        .withColumn(
-            "source_year",
-            F.year(F.col("event_date"))
-        )
+        .withColumn("source_year", F.year("event_date"))
+        .withColumnRenamed("id", "observation_id")
     )
 
-    # Write canonical Bronze Parquet
+    # Minimal Bronze projection
+    bronze_df = bronze_df.select(
+        "observation_id",
+        "event_date",
+        "source_year",
+        F.col("geojson.coordinates")[1].alias("latitude"),
+        F.col("geojson.coordinates")[0].alias("longitude"),
+        "place_guess"
+    )
+
+    # Write canonical Bronze
     (
-        bronze_df.write
+        bronze_df
+        .write
         .mode("overwrite")
         .parquet(args.bronze_parquet_path)
-    )
-
-    print(
-        f"[DONE] Converted Bronze JSON -> Parquet\n"
-        f"Input:  {args.bronze_json_path}\n"
-        f"Output: {args.bronze_parquet_path}"
     )
 
     spark.stop()
