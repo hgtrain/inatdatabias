@@ -1,27 +1,19 @@
-# gold_observation_counts.py
-#
-# PURPOSE
-# -------
-# Gold aggregation job that computes daily observation counts
-# by taxonomic group from enriched Silver data.
-#
-# INPUT (Silver)
-# --------------
-# s3://bhj-analytics/silver/inat_observations_enriched/
-#
-# OUTPUT (Gold)
-# -------------
-# s3://bhj-analytics/gold/gold_observation_counts/
-#
-# LOGIC
-# -----
-# Group by:
-#   - iconic_taxon_name
-#   - observed_date
-#   - source_year
-#
-# Metric:
-#   - observation_count = countDistinct(observation_id)
+"""
+gold_observation_counts.py
+
+Gold aggregation job that computes daily observation counts
+by taxonomic group from enriched Silver data.
+
+Input (Silver):
+- s3://bhj-analytics/silver/inat_observations_enriched/
+
+Output (Gold):
+- s3://bhj-analytics/gold/gold_observation_counts/
+
+Aggregation logic:
+- Group by iconic_taxon_name, observed_date, source_year
+- Metric: observation_count = countDistinct(observation_id)
+"""
 
 import argparse
 import os

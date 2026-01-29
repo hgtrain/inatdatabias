@@ -1,18 +1,31 @@
-# silver_batch_job.py
-#Batch Spark job that reads Bronze data from S3,
-# applies light transformations, and writes Silver data back to S3.
+"""
+silver_batch_job.py
+
+Batch Spark job that converts Bronze observation data into Silver format.
+
+Purpose:
+- Enforce data types and schema consistency
+- Deduplicate observations by observation_id
+- Support optional date-based backfills
+
+Input (Bronze):
+- S3 path provided via --bronze-path
+
+Output (Silver):
+- S3 path provided via --silver-path
+"""
 
 import argparse
 import os
 import sys
 
-# Ensure src/ is on PYTHONPATH
+# Ensure src/ is on PYTHONPATH for spark-submit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from pyspark.sql.functions import col, to_date
 from spark_jobs.spark_session import create_spark_session
 
-# Argument parsing 
+
 parser = argparse.ArgumentParser(description="Bronze to Silver batch job")
 
 parser.add_argument(
@@ -35,18 +48,15 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-# Spark Session
 spark = create_spark_session("SilverBatchJob")
 
-# Read Bronze data
 bronze_df = spark.read.parquet(args.bronze_path)
 
-# Always cast observed_date to date in Silver
+# Enforce observed_date as date type in Silver
 bronze_df = bronze_df.withColumn(
     "observed_date",
     to_date(col("observed_date"))
 )
-
 
 # Optional date filtering (batch / backfill logic)
 if args.start_date:
@@ -76,7 +86,6 @@ silver_df = silver_df.select(
     "source_year"
 )
 
-# Write Silver data
 (
     silver_df
     .write

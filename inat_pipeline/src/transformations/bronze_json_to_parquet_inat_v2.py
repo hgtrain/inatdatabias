@@ -1,9 +1,25 @@
+"""
+bronze_json_to_parquet_inat_v2.py
+
+Bronze transformation job for iNaturalist observations.
+
+Purpose:
+- Read raw iNaturalist JSON data from S3
+- Normalize key fields into a structured Bronze schema
+- Derive a single canonical observed_date from multiple possible timestamps
+- Write the result as Parquet for downstream Silver processing
+
+This job performs light normalization only.
+No deduplication or enrichment is done at this stage.
+"""
+
 import sys
 import os
+import argparse
+
+# Ensure src/ is on PYTHONPATH when running with spark-submit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-
-import argparse
 from pyspark.sql import functions as F
 from spark_jobs.spark_session import create_spark_session
 
@@ -18,7 +34,7 @@ def main():
 
     raw_df = spark.read.json(args.bronze_json_path)
 
-    # ---- CANONICAL DATE (FIXED) ----
+    # Canonical observed_date derived defensively from multiple API fields
     observed_date = F.coalesce(
         F.to_date(F.col("observed_on_details.date")),
         F.to_date(F.col("observed_on")),

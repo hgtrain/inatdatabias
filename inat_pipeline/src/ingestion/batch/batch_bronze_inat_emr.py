@@ -1,4 +1,16 @@
-# src/ingestion/batch/batch_bronze_inat_emr.py
+"""
+batch_bronze_inat_emr.py
+
+Batch ingestion job for iNaturalist observations.
+
+Purpose:
+- Pull observations from the iNaturalist API for a given year
+- Write raw JSON records to S3 in JSONL format
+- Designed to be safe to stop and re-run without data loss
+
+This job represents the Bronze ingestion layer and performs
+no transformations beyond pagination and storage.
+"""
 
 import argparse
 import json
@@ -15,6 +27,10 @@ s3 = boto3.client("s3")
 
 
 def upload_jsonl(records, year, page):
+    """
+    Writes a list of raw API records to S3 as a JSONL file.
+    Each page is written as a separate object for traceability.
+    """
     if not records:
         return
 
@@ -33,6 +49,10 @@ def upload_jsonl(records, year, page):
 
 
 def ingest_year(year: int):
+    """
+    Ingests all available iNaturalist observations for a given year.
+    Pagination is handled sequentially and ingestion can be resumed safely.
+    """
     page = 1
     total_records = 0
 
@@ -83,6 +103,9 @@ def ingest_year(year: int):
 
 
 def main():
+    """
+    CLI entry point for year-based batch ingestion.
+    """
     parser = argparse.ArgumentParser(
         description="Batch Bronze ingestion for iNaturalist observations"
     )

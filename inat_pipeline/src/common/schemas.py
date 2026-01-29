@@ -1,14 +1,13 @@
+"""
+schemas.py
 
-#schemas.py
-# NEW - WARNING:
-# These schemas are NOT raw iNaturalist JSON schemas.
-# They include derived fields and must NOT be used for
-# JSON ingestion or Bronze canonicalization.
+Defines Spark StructType schemas used in the Bronze layer.
 
-
-
-#Defines Spark StructType schemas for Bronze-layer ingestion
-#These schemas are used to parse JSON messages coming from Kafka intro Spark DataFrames
+IMPORTANT:
+- These schemas are NOT raw iNaturalist API schemas.
+- Fields here include derived or renamed values.
+- Do NOT use these schemas for raw JSON ingestion or canonical Bronze storage.
+"""
 
 from pyspark.sql.types import(
   StructType, StructField,
@@ -16,6 +15,7 @@ from pyspark.sql.types import(
   DoubleType, IntegerType
 )
 
+# Schema for Bronze iNaturalist observations after minimal normalization
 BRONZE_INAT_OBSERVATIONS_SCHEMA = StructType([
     StructField("observation_id", LongType(), nullable=False),
     StructField("observed_at", StringType(), nullable=True),
@@ -30,6 +30,7 @@ BRONZE_INAT_OBSERVATIONS_SCHEMA = StructType([
     StructField("source_year", IntegerType(), nullable=True),
 ])
 
+# Schema for Bronze ParkServe parks (reference / dimension-style data)
 BRONZE_PARKSERVE_PARKS_SCHEMA = StructType([
     StructField("park_id", StringType(), nullable=False),
     StructField("park_name", StringType(), nullable=True),

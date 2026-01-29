@@ -1,21 +1,21 @@
-# silver_join_inat_parkserve.py
-#
-# PURPOSE
-# -------
-# Silver enrichment job that joins iNaturalist observation data (fact)
-# with ParkServe park reference data (dimension) at the county level.
-#
-# This join provides spatial context while preserving latitude/longitude
-# and full park geometries for downstream spatial analysis.
-#
-# INPUT (Silver)
-# --------------
-# iNaturalist: s3://bhj-analytics/silver/inat_observations/
-# ParkServe:   s3://bhj-analytics/silver/parkserve_parks/
-#
-# OUTPUT (Silver)
-# ---------------
-# s3://bhj-analytics/silver/inat_observations_enriched/
+"""
+silver_join_inat_parkserve.py
+
+Silver enrichment job that joins iNaturalist observation data (fact)
+with ParkServe park reference data (dimension) at the county level.
+
+Purpose:
+- Add park context to observation records
+- Preserve latitude/longitude and full park geometries
+- Prepare enriched Silver data for downstream spatial analysis
+
+Input (Silver):
+- iNaturalist: s3://bhj-analytics/silver/inat_observations/
+- ParkServe:   s3://bhj-analytics/silver/parkserve_parks/
+
+Output (Silver):
+- s3://bhj-analytics/silver/inat_observations_enriched/
+"""
 
 import argparse
 import os
@@ -84,19 +84,19 @@ def main():
 
     # Select final Silver schema
     silver_enriched_df = joined_df.select(
-        # iNaturalist (fact)
+        # iNaturalist Observation (fact) fields
         col("inat.observation_id"),
         col("inat.observed_date"),
         col("inat.latitude"),
         col("inat.longitude"),
-        col("inat.county").alias("county"),
+        col("inat.county"),
         col("inat.state"),
         col("inat.taxon_id"),
         col("inat.iconic_taxon_name"),
         col("inat.quality_grade"),
         col("inat.source_year"),
 
-        # ParkServe (dimension)
+        # ParkServe reference (dimension) fields
         col("park.park_id"),
         col("park.park_name"),
         col("park.geometry_json"),

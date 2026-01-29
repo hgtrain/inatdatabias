@@ -1,22 +1,20 @@
-# bronze_json_to_parquet_inat.py
-#
-# PURPOSE
-# -------
-# Canonicalize raw Bronze iNaturalist JSON into a stable Bronze Parquet dataset
-# with reliable observed_date + source_year for downstream Silver/Gold jobs.
-#
-# INPUT (raw Bronze JSON)
-# ----------------------
-# s3://bhj-analytics/bronze/inat_observations/year=YYYY/
-#
-# OUTPUT (canonical Bronze Parquet)
-# --------------------------------
-# s3://bhj-analytics/bronze_parquet/inat_observations/year=YYYY/
-#
-# KEY FIX
-# -------
-# Raw iNat JSON differs across years (ex: 2020 may not include observed_at).
-# This job defensively derives observed_date from multiple candidate fields.
+"""
+bronze_json_to_parquet_inat.py
+
+Bronze transformation job that converts raw iNaturalist JSON
+into structured Parquet format.
+
+Purpose:
+- Normalize raw API JSON into a tabular Bronze schema
+- Derive a canonical observed_date from multiple possible fields
+- Extract spatial and taxonomic attributes for downstream processing
+
+Input (Bronze JSON):
+- s3://bhj-analytics/bronze/inat_observations/
+
+Output (Bronze Parquet):
+- s3://bhj-analytics/bronze/inat_observations_parquet/
+"""
 
 import argparse
 import os
@@ -24,7 +22,7 @@ import sys
 
 from pyspark.sql import functions as F
 
-# Ensure src/ is on PYTHONPATH
+# Ensure src/ is on PYTHONPATH for spark-submit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from spark_jobs.spark_session import create_spark_session

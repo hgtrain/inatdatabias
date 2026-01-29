@@ -1,27 +1,42 @@
 # iNaturalist Stream Analytics Pipeline
 
-This repository contains the core data pipeline for a cloud-based stream analytics platform analyzing biodiversity observation patterns in New Jersey.
+A learning-focused data engineering pipeline using AWS, Spark, and medallion architecture.
 
-The pipeline is designed using a Bronze–Silver–Gold architecture and supports historical batch processing with optional streaming validation.
+This repository contains a data pipeline built to analyze biodiversity observation activity using iNaturalist data, with additional park reference data from ParkServe.
+
+The main goal of this project is to compare **observation activity over time (2019 vs 2020)** and to practice building a real-world **Bronze → Silver → Gold** data pipeline using AWS and Spark.
+
+The project is designed to be correct, transparent, and easy to reason about, rather than overly complex.
 
 ---
 
 ## High-Level Architecture
 
-- **Data Sources**
-  - iNaturalist API (biodiversity observations)
-  - ParkServe dataset (park spatial reference data)
+### Data Sources
 
-- **Processing**
-  - Apache Spark (PySpark) running on AWS EMR
+- **iNaturalist API**
+  - Biodiversity observation events
+  - Provides timestamps, taxonomic data, and latitude/longitude
+- **ParkServe (Trust for Public Land)**
+  - U.S. park reference dataset
+  - Provides park identifiers, county names, and park geometries
 
-- **Storage**
-  - Amazon S3 for all Bronze, Silver, and Gold datasets
+### Processing
 
-- **Streaming (Planned / Validation Phase)**
-  - Apache Kafka hosted on EC2
+- Apache Spark (PySpark)
+- AWS EMR for batch processing
 
-Local development (WSL / laptop) is used for testing and validation only. The target execution environment is AWS EMR.
+### Storage
+
+- Amazon S3 is used for all Bronze, Silver, and Gold datasets
+
+### Streaming (Validation / Future Use)
+
+- Apache Kafka hosted on EC2
+- Included to demonstrate multi-topic ingestion and future validation
+
+Local development was used only for testing.  
+All production-style runs are designed for **AWS EMR**.
 
 ---
 
@@ -29,139 +44,209 @@ Local development (WSL / laptop) is used for testing and validation only. The ta
 
 ### Observation Grain
 
-Each record represents **one biodiversity observation event**. This is the fundamental analytical unit used throughout the pipeline.
+Each row represents **one biodiversity observation**.
 
-Spatial aggregation and analytical grouping are intentionally deferred to later layers.
+This grain is preserved across the pipeline.  
+Aggregations and analysis are only performed in the Gold layer.
 
 ---
 
-## Kafka Topics (Planned / Partial)
+## Kafka Topics (Validation Phase)
 
-Kafka is used to satisfy the multi-topic streaming requirement and to support future validation of live data patterns.
+Kafka is included mainly to demonstrate streaming concepts and multi-topic ingestion.
 
-### `inat_observations` (Fact Stream)
+### `inat_observations`
 
-Represents individual biodiversity observation events.
+Represents individual biodiversity observations.
 
-Fields:
+Key fields:
 
 - observation_id
-- observed_at
 - observed_date
 - latitude
 - longitude
-- county
-- state
 - taxon_id
 - iconic_taxon_name
 - quality_grade
 - source_year
 
-### `parkserve_parks` (Dimension Stream)
+### `parkserve_parks`
 
-Represents park reference and spatial metadata.
+Represents park reference information.
 
-Fields:
+Key fields:
 
 - park_id
 - park_name
 - county
-- state
-- geometry (serialized geometry string)
+- geometry (serialized)
 - source
+
+Kafka is **not the main execution path** for this project.
 
 ---
 
 ## Data Layers
 
-### Bronze Layer
+## Bronze Layer
 
-Raw, minimally transformed data stored in Amazon S3.
+### Purpose
 
-Sources:
+- Store raw data
+- Preserve original structure
+- Avoid early assumptions or transformations
 
-- iNaturalist historical batch ingestion (2019, 2020)
-- ParkServe reference dataset (batch ingestion)
-- Optional Kafka-based ingestion for live validation
-
-Characteristics:
+### Characteristics
 
 - Append-only
 - No aggregation
-- Geometry preserved in raw serialized form
+- Geometry preserved as-is
+- Minimal transformation
+
+### Outputs
+
+- Raw iNaturalist JSON in S3
+- Canonical Bronze Parquet created from JSON
+
+An early issue with missing derived fields was identified and fixed by rebuilding the Bronze Parquet layer correctly.
 
 ---
 
-### Silver Layer
+## Silver Layer
 
-Cleaned, structured, and reusable datasets derived from Bronze.
+### Silver iNaturalist (Canonical)
+
+### Purpose
+
+- Clean and standardize observation data
+- Prepare data for reuse and aggregation
 
 Transformations include:
 
-- Casting observed_date to proper date type
-- Removing null or invalid observation IDs
-- Deduplicating by observation_id
-- Normalizing schema for downstream analytics
+- Casting `observed_date` to a date type
+- Removing invalid observation IDs
+- Deduplicating observations
+- Enforcing a consistent schema
 
-Silver datasets are designed to be reusable across batch and streaming workflows.
+**Note on County and State**
+
+- iNaturalist does not reliably provide county or state fields
+- This pipeline does not perform reverse geocoding
+- As a result, county and state remain null
+
+This avoids introducing incorrect geographic data.
 
 ---
 
-### Gold Layer (Planned)
+### Silver Enriched (iNaturalist + ParkServe)
 
-Analytics-ready, denormalized datasets derived from Silver.
+### Purpose
 
-Intended metrics include:
+- Attempt to enrich observations with park reference data
+- Preserve park geometries for future use
 
-- Observation counts by county and date
-- Distinct taxa counts
-- Year-over-year comparisons (2019 vs 2020)
-- Aggregations supporting BI and visualization tools
+### Join Strategy
+
+- Left join using normalized county names
+- All observation records are preserved
+
+### Result
+
+- No successful matches between observations and parks
+- `park_id` values are null
+
+This outcome is expected because:
+
+- Observations are points (lat/long)
+- Parks are geographic areas (polygons)
+- Matching by county name alone is not reliable
+
+This limitation is documented rather than hidden.
+
+---
+
+## Gold Layer
+
+### State-Year Observation Summary
+
+### Purpose
+
+- Validate the pipeline end-to-end
+- Produce a simple analytics-ready table
+
+### Output
+
+Observation counts by year:
+
+| source_year | observation_count |
+| ----------- | ----------------- |
+| 2019        | 10000             |
+| 2020        | 10000             |
+
+Counts shown are representative; actual values depend on API pagination at runtime.
+
+This confirms:
+
+- Data ingestion worked
+- Transformations were applied correctly
+- Results are consistent across years
+
+---
+
+## Why Spatial Joins Are Not Implemented (Currently working on**\***)
+
+Correctly joining observations to parks requires a **spatial join** using latitude/longitude and park boundaries.
+
+This requires additional tools such as:
+
+- PostGIS
+- Apache Sedona
+
+This project:
+
+- Preserves all required spatial data
+- Avoids inaccurate joins
+- Documents spatial joins as future work
 
 ---
 
 ## Local Development Notes
 
 - Kafka producers were tested locally
-- Spark Structured Streaming from Kafka is not fully executed locally
-- Local Spark does not include Kafka support by default
-- Spark jobs are written to be submitted directly to AWS EMR
+- Spark streaming from Kafka was not fully run locally
+- Local Spark does not support Kafka by default
+- Spark jobs are written for EMR execution
 
-Local testing focuses on:
-
-- Schema correctness
-- Producer logic
-- Pipeline parameterization
+Local testing focused on correctness rather than scale.
 
 ---
 
 ## How to Run (Target Environment)
 
-### Spark on EMR
+1. Launch an AWS EMR cluster
+2. Submit Spark jobs using `spark-submit`
+3. Use S3 paths for all inputs and outputs
+4. Verify outputs using S3 `_SUCCESS` files and Spark queries
 
-- Launch EMR cluster
-- Submit Spark jobs using `spark-submit`
-- Use S3 paths for all inputs and outputs
-- Verify Bronze and Silver Parquet outputs in S3
-
-Kafka execution and Airflow orchestration are intended for later stages and may be partially demonstrated.
+Kafka and Airflow are optional and not required for core execution.
 
 ---
 
 ## Current Status
 
-- iNaturalist historical Bronze ingestion completed (2019, 2020)
-- ParkServe Bronze ingestion completed
-- Silver batch transformation implemented for iNaturalist
-- Spark jobs written and EMR-compatible
-- Kafka producers implemented (used for validation phase)
+- iNaturalist Bronze ingestion complete (2019, 2020)
+- ParkServe Bronze ingestion complete
+- Bronze Parquet rebuilt and validated
+- Silver transformations implemented
+- Silver enrichment attempted and documented
+- Gold aggregation completed
+- Pipeline runs successfully on EMR
 
 ---
 
 ## Next Steps
 
-- Implement Silver transformation for ParkServe data
-- Join iNaturalist and ParkServe data in Silver
-- Build Gold aggregation tables
-- Add optional Kafka-based streaming validation
-- Integrate orchestration using Apache Airflow
+- Implement spatial joins using a spatial database or engine
+- Add more Gold-level aggregations
+- Introduce orchestration with Airflow
+- Expand streaming validation

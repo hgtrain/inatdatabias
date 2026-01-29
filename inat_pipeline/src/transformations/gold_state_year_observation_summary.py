@@ -1,7 +1,18 @@
-# PURPOSE
-# -------
-# Gold aggregation summarizing iNaturalist observation volume by year.
-# Designed to compare pre-COVID (2019) vs COVID-era (2020) activity.
+"""
+gold_state_year_observation_summary.py
+
+Gold aggregation summarizing iNaturalist observation volume by year.
+
+Purpose:
+- Aggregate total observation counts by source_year
+- Support high-level comparison of pre-COVID (2019) vs COVID-era (2020) activity
+
+Input (Silver):
+- s3://bhj-analytics/silver_v2/inat_observations/
+
+Output (Gold):
+- s3://bhj-analytics/gold/state_year_observation_summary/
+"""
 
 import argparse
 import os
@@ -9,7 +20,9 @@ import sys
 
 from pyspark.sql import functions as F
 
+# Ensure src/ is on PYTHONPATH for spark-submit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from spark_jobs.spark_session import create_spark_session
 
 

@@ -1,26 +1,26 @@
-# silver_parkserve_batch_job.py
-#
-# PURPOSE
-# -------
-# Silver batch job for ParkServe spatial reference data.
-# Reads the Bronze GeoJSON (FeatureCollection) from S3, normalizes a small set
-# of fields, and writes Silver parquet back to S3.
-#
-# INPUT (Bronze)
-# --------------
-# s3://bhj-analytics/bronze/parkserve_parks/parkserve_raw.geojson
-#
-# OUTPUT (Silver)
-# ---------------
-# s3://bhj-analytics/silver/parkserve_parks/
-#
-# NOTES
-# -----
-# - Bronze GeoJSON is large and nested: {"type":"FeatureCollection","features":[...]}
-# - Spark does not natively understand GeoJSON without extra libraries
-# - We read the file as JSON and explode the "features" array
-# - Geometry is intentionally preserved as serialized JSON
-#   Spatial transformations are deferred to downstream PostGIS/GIS tooling
+"""
+silver_parkserve_batch_job.py
+
+Silver batch job for ParkServe spatial reference data.
+
+Purpose:
+- Read Bronze ParkServe GeoJSON (FeatureCollection)
+- Normalize a small set of reference attributes
+- Preserve park geometry for downstream spatial analysis
+- Write Silver parquet for use as a dimension dataset
+
+Input (Bronze):
+- s3://bhj-analytics/bronze/parkserve_parks/parkserve_raw.geojson
+
+Output (Silver):
+- s3://bhj-analytics/silver/parkserve_parks/
+
+Notes:
+- ParkServe data is delivered as a large, nested GeoJSON FeatureCollection
+- Spark does not natively process GeoJSON geometry
+- Geometry is preserved as serialized JSON
+- Spatial transformations are intentionally deferred to PostGIS / GIS tooling
+"""
 
 import argparse
 import os
@@ -29,14 +29,17 @@ import sys
 from pyspark.sql import functions as F
 from pyspark.sql.functions import col
 
-# Ensure src/ is on PYTHONPATH (required for spark-submit on EMR)
+# Ensure src/ is on PYTHONPATH for spark-submit
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from spark_jobs.spark_session import create_spark_session
 
 
 def normalize_string(c):
-    """Trim whitespace and convert empty strings to null."""
+    """
+    Normalize string attributes by trimming whitespace
+    and converting empty values to null.
+    """
     return F.when(F.trim(c) == "", None).otherwise(F.trim(c))
 
 
@@ -71,14 +74,14 @@ def main():
 
     spark = create_spark_session("SilverParkServeBatchJob")
 
-    # 1) Read GeoJSON as JSON (multiline FeatureCollection)
+    # Read GeoJSON as JSON (multiline FeatureCollection)
     raw_df = (
         spark.read
         .option("multiline", "true")
         .json(args.bronze_path)
     )
 
-    # 2) Explode features array -> one row per park
+    # Explode features array -> one row per park
     features_df = raw_df.select(
         F.explode(col("features")).alias("feature")
     )
@@ -86,11 +89,11 @@ def main():
     if args.limit:
         features_df = features_df.limit(args.limit)
 
-    # 3) Extract properties and geometry
+    # Extract properties and geometry
     props = col("feature.properties")
     geom = col("feature.geometry")
 
-    # 4) Normalize attribute fields (robust across ParkServe exports)
+    # Park ideentifiers vary across ParkServe exports
     park_id = F.coalesce(
         props.getItem("ParkID"),
         props.getItem("GISTrkrID"),
@@ -104,7 +107,7 @@ def main():
 
     state = props.getItem("Park_State")
 
-    # 5) Preserve geometry as serialized JSON
+    # Preserve geometry as serialized JSON
     geometry_json = F.to_json(geom)
 
     silver_df = (
@@ -117,17 +120,17 @@ def main():
             geometry_json.alias("geometry_json"),
             F.lit("ParkServe").alias("source")
         )
-        # 6) Light cleanup
+        # Light cleanup
         .withColumn("park_id", normalize_string(col("park_id")))
         .withColumn("park_name", normalize_string(col("park_name")))
         .withColumn("county", normalize_string(col("county")))
         .withColumn("state", normalize_string(col("state")))
-        # 7) Drop invalid / duplicate dimension rows
+        # Drop invalid / duplicate dimension rows
         .filter(col("park_id").isNotNull())
         .dropDuplicates(["park_id"])
     )
 
-    # 8) Write Silver parquet (partitioned by state for downstream filtering)
+    # Write Silver parquet (partitioned by state for downstream filtering)
     (
         silver_df.write
         .mode(args.mode)
