@@ -97,19 +97,12 @@ def main():
         props.getItem("SourceID"),
     )
 
-    park_name = F.coalesce(
-        props.getItem("Park_Name"),
-        props.getItem("name"),
-        props.getItem("Name")
-    )
+    park_name = props.getItem("Park_Name")
 
-    county = F.coalesce(
-        props.getItem("Park_County")
-    )
 
-    state = F.coalesce(
-        props.getItem("Park_State")
-    )
+    county = props.getItem("Park_County")
+
+    state = props.getItem("Park_State")
 
     # 5) Preserve geometry as serialized JSON
     geometry_json = F.to_json(geom)
