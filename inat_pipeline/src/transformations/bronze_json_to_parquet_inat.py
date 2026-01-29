@@ -3,23 +3,23 @@
 # PURPOSE
 # -------
 # Canonicalize raw Bronze iNaturalist JSON into Parquet.
-# Converts API JSON pages into a Spark-readable, schema-stable
-# Bronze Parquet dataset with canonical time fields.
+# This job converts API JSON pages into a Spark-readable,
+# schema-enforced Parquet Bronze dataset.
 #
-# INPUT (Bronze - raw JSON)
-# ------------------------
+# INPUT (Bronze - raw)
+# --------------------
 # s3://bhj-analytics/bronze/inat_observations/year=YYYY/*.json
 #
-# OUTPUT (Bronze - canonical Parquet)
-# ----------------------------------
+# OUTPUT (Bronze - canonical)
+# ---------------------------
 # s3://bhj-analytics/bronze_parquet/inat_observations/year=YYYY/
 #
-# DESIGN CONTRACT
-# ---------------
+# NOTES
+# -----
 # - No deduplication
+# - No analytics
 # - No enrichment
-# - Minimal normalization ONLY
-# - Guarantees event_date + source_year for downstream Silver/Gold
+# - Normalizes event date fields for downstream correctness
 
 import argparse
 import os
@@ -27,7 +27,7 @@ import sys
 
 from pyspark.sql import functions as F
 
-# Ensure src/ is on PYTHONPATH for spark-submit on EMR
+# Ensure src/ is on PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from spark_jobs.spark_session import create_spark_session
@@ -36,7 +36,7 @@ from common.schemas import BRONZE_INAT_OBSERVATIONS_SCHEMA
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Convert Bronze iNaturalist JSON to canonical Parquet"
+        description="Convert Bronze iNaturalist JSON to Parquet"
     )
     parser.add_argument(
         "--bronze-json-path",
@@ -53,50 +53,34 @@ def main():
 
     spark = create_spark_session("BronzeJsonToParquetInat")
 
-
     # Read raw JSON with enforced schema
-
     raw_df = (
         spark.read
         .schema(BRONZE_INAT_OBSERVATIONS_SCHEMA)
         .json(args.bronze_json_path)
     )
 
-
-    #    Canonical time normalization
-    #    iNaturalist provides multiple time fields inconsistently.
-    #    We coalesce them into a single event_time.
--
-    df = (
+    # Normalize event timestamp (critical fix)
+    bronze_df = (
         raw_df
         .withColumn(
-            "event_time",
-            F.coalesce(
-                F.col("time_observed_at"),
-                F.col("observed_on"),
-                F.col("created_at")
+            "event_date",
+            F.to_date(
+                F.coalesce(
+                    F.col("observed_on"),
+                    F.col("observed_at"),
+                    F.col("time_observed_at"),
+                    F.col("created_at")
+                )
             )
         )
-        .withColumn("event_date", F.to_date("event_time"))
-        .withColumn("source_year", F.year("event_date"))
+        .withColumn(
+            "source_year",
+            F.year(F.col("event_date"))
+        )
     )
 
-    # 3) Select canonical Bronze contract
-
-    bronze_df = df.select(
-        F.col("id").alias("observation_id"),
-        "event_date",
-        "source_year",
-        F.col("geojson.coordinates").getItem(1).alias("latitude"),
-        F.col("geojson.coordinates").getItem(0).alias("longitude"),
-        "quality_grade",
-        F.col("taxon.id").alias("taxon_id"),
-        F.col("taxon.iconic_taxon_name").alias("iconic_taxon_name"),
-        "place_guess"
-    )
-
-
-    # 4) Write canonical Bronze Parquet
+    # Write canonical Bronze Parquet
     (
         bronze_df.write
         .mode("overwrite")
@@ -104,7 +88,7 @@ def main():
     )
 
     print(
-        "[DONE] Converted Bronze JSON -> canonical Parquet\n"
+        f"[DONE] Converted Bronze JSON -> Parquet\n"
         f"Input:  {args.bronze_json_path}\n"
         f"Output: {args.bronze_parquet_path}"
     )
