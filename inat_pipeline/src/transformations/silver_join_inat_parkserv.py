@@ -89,7 +89,7 @@ def main():
         col("inat.observed_date"),
         col("inat.latitude"),
         col("inat.longitude"),
-        col("inat.county"),
+        col("inat.county").alias("county"),
         col("inat.state"),
         col("inat.taxon_id"),
         col("inat.iconic_taxon_name"),
