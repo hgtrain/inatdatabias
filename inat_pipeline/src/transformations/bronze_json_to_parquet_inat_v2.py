@@ -23,7 +23,6 @@ def main():
         F.to_date(F.col("observed_on_details.date")),
         F.to_date(F.col("observed_on")),
         F.to_date(F.to_timestamp(F.col("time_observed_at"))),
-        F.to_date(F.to_timestamp(F.col("observed_at"))),
         F.to_date(F.to_timestamp(F.col("created_at")))
     )
 
