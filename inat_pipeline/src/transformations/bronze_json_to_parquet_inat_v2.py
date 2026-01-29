@@ -1,6 +1,12 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
 import argparse
 from pyspark.sql import functions as F
 from spark_jobs.spark_session import create_spark_session
+
 
 def main():
     parser = argparse.ArgumentParser()
