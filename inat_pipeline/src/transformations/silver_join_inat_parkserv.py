@@ -85,16 +85,16 @@ def main():
     # Select final Silver schema
     silver_enriched_df = joined_df.select(
         # iNaturalist (fact)
-        col("observation_id"),
-        col("observed_date"),
-        col("latitude"),
-        col("longitude"),
-        col("county"),
-        col("state"),
-        col("taxon_id"),
-        col("iconic_taxon_name"),
-        col("quality_grade"),
-        col("source_year"),
+        col("inat.observation_id"),
+        col("inat.observed_date"),
+        col("inat.latitude"),
+        col("inat.longitude"),
+        col("inat.county"),
+        col("inat.state"),
+        col("inat.taxon_id"),
+        col("inat.iconic_taxon_name"),
+        col("inat.quality_grade"),
+        col("inat.source_year"),
 
         # ParkServe (dimension)
         col("park.park_id"),
