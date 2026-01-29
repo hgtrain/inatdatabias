@@ -61,15 +61,15 @@ def main():
     spark = create_spark_session("SilverJoinInatParkServe")
 
     # Read Silver datasets
-    inat_df = spark.read.parquet(args.inat_path)
-    park_df = spark.read.parquet(args.parkserve_path)
+    inat_df = spark.read.parquet(args.inat_path).alias("inat")
+    park_df = spark.read.parquet(args.parkserve_path).alias("park")
 
     # Normalize join keys defensively
     inat_df = inat_df.withColumn(
-        "county_norm", F.upper(F.trim(col("county")))
+        "county_norm", F.upper(F.trim(col("inat.county")))
     )
     park_df = park_df.withColumn(
-        "county_norm", F.upper(F.trim(col("county")))
+        "county_norm", F.upper(F.trim(col("park.county")))
     )
 
     # Left join to preserve all observation events
@@ -84,7 +84,7 @@ def main():
 
     # Select final Silver schema
     silver_enriched_df = joined_df.select(
-        # Observation fields
+        # iNaturalist (fact)
         col("observation_id"),
         col("observed_date"),
         col("latitude"),
@@ -96,10 +96,10 @@ def main():
         col("quality_grade"),
         col("source_year"),
 
-        # ParkServe enrichment (nullable)
-        col("park_id"),
-        col("park_name"),
-        col("geometry_json"),
+        # ParkServe (dimension)
+        col("park.park_id"),
+        col("park.park_name"),
+        col("park.geometry_json"),
         F.lit("ParkServe").alias("park_source")
     )
 
