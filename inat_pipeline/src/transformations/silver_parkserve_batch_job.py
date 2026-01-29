@@ -95,7 +95,6 @@ def main():
         props.getItem("ParkID"),
         props.getItem("GISTrkrID"),
         props.getItem("SourceID"),
-        col("feature.id")
     )
 
     park_name = F.coalesce(
