@@ -240,13 +240,26 @@ Kafka and Airflow are optional and not required for core execution.
 - Silver transformations implemented
 - Silver enrichment attempted and documented
 - Gold aggregation completed
-- Pipeline runs successfully on EMR
+- Pipeline runs successfully on AWS EMR
 
 ---
 
-## Next Steps
+## Data Scope and Limitations
 
-- Implement spatial joins using a spatial database or engine
-- Add more Gold-level aggregations
-- Introduce orchestration with Airflow
-- Expand streaming validation
+This project is designed to demonstrate the architecture, correctness, and scalability of a cloud-based data engineering pipeline rather than to produce statistically definitive ecological conclusions.
+
+### Sampling Scope
+
+Historical iNaturalist observations were ingested using a fixed-size sample per year (10,000 observations for 2019 and 2020). Sampling was intentionally used to control cost, runtime, and development complexity while validating ingestion, transformation, and aggregation logic. The pipeline is parameterized and designed to scale to larger or complete historical datasets if required.
+
+### Temporal Coverage
+
+Because the dataset is sampled, temporal coverage does not span all calendar days in each year. Aggregations performed at the daily level reflect the observed dates present in the sampled data rather than full-year coverage. For example, in the sampled dataset, 2020 observations only span a narrow window early in the year, which explains the smaller number of observed days appearing in downstream Gold aggregates.
+
+As a result, values in the Gold tables should be interpreted as illustrative of how biodiversity metrics can be computed and compared across years using the pipeline, rather than as statistically representative measures of full-year biodiversity trends.
+
+### Spatial Considerations
+
+iNaturalist observations are point-based (latitude and longitude), while ParkServe data represents polygonal park boundaries. Attribute-based geographic joins were evaluated and intentionally rejected due to data sparsity and the risk of inaccurate spatial inference.
+
+The pipeline preserves latitude/longitude for observations and geometry data for parks, enabling future spatial analysis using a dedicated spatial engine if required.
