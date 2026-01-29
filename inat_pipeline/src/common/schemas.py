@@ -1,4 +1,12 @@
+
 #schemas.py
+# NEW - WARNING:
+# These schemas are NOT raw iNaturalist JSON schemas.
+# They include derived fields and must NOT be used for
+# JSON ingestion or Bronze canonicalization.
+
+
+
 #Defines Spark StructType schemas for Bronze-layer ingestion
 #These schemas are used to parse JSON messages coming from Kafka intro Spark DataFrames
 
