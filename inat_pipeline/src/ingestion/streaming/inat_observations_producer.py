@@ -50,18 +50,17 @@ def transform_observation(obs: dict) -> dict:
     observed_on = obs.get("observed_on")
 
     return {
-        "observation_id": obs.get("id"),
-        "observed_at": observed_on,
-        "observed_date": observed_on,
-        "latitude": obs.get("geojson", {}).get("coordinates", [None, None])[1],
-        "longitude": obs.get("geojson", {}).get("coordinates", [None, None])[0],
-        "county": obs.get("place_guess"),
-        "state": "New Jersey",
-        "taxon_id": obs.get("taxon", {}).get("id"),
-        "iconic_taxon_name": obs.get("taxon", {}).get("iconic_taxon_name"),
-        "quality_grade": obs.get("quality_grade"),
-        "source_year": int(observed_on[:4]) if observed_on else None,
-    }
+    "observation_id": obs.get("id"),
+    "taxon_id": obs.get("taxon", {}).get("id"),
+    "observed_date": observed_on,
+    "latitude": obs.get("geojson", {}).get("coordinates", [None, None])[1],
+    "longitude": obs.get("geojson", {}).get("coordinates", [None, None])[0],
+    "iconic_taxon_name": obs.get("taxon", {}).get("iconic_taxon_name"),
+    "place_guess": obs.get("place_guess"),
+    "quality_grade": obs.get("quality_grade"),
+    "created_at": obs.get("created_at"),
+}
+
 
 
 def publish(observations: list[dict]) -> None:
