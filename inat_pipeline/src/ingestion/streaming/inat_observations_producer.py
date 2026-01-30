@@ -5,6 +5,10 @@ Supports two modes:
 1) historical --year YYYY   (finite backfill)
 2) stream --since YYYY-MM-DD (incremental polling)
 
+Note:
+Historical mode is supported for completeness, but this project uses batch ingestion for historical backfills. 
+Kafka streaming is used only for live/incremental observations. 
+
 """
 
 import argparse
